@@ -1,0 +1,46 @@
+name: Flask Web App CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 自动化测试
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 运行单元测试
+        run: python -m unittest discover -s tests -v
+
+  deploy:
+    name: 自动化部署到服务器
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: 通过 SSH 更新服务器上的应用
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /root/flask-web-app
+            git pull origin main
+            pip3 install -r requirements.txt
+            supervisorctl restart flask-web-app
+            sleep 2
+            supervisorctl status flask-web-app
